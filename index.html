@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>OLIC</title>
+    <script type="text/javascript" src="kernel.js"></script>
+    <script type="text/javascript" src="interface.js"></script>
+    <style type="text/css">
+        .column-left {
+            float: left;
+            width: 50%;
+        }
+
+        .column-right {
+            float: left;
+            width: 50%;
+        }
+
+        .footer {
+            clear: both;
+        }
+    </style>
+</head>
+<body>
+    <div><h2 style="text-align: center;">Ориентированный линейный интеграл свёртки (OLIC)</h2></div>
+    <div class="column-left">
+        <canvas id="canvas3D" width="600" height="600">Ваш браузер не поддерживает элемент canvas</canvas>
+    </div>
+
+    <div class="column-right">
+        <div id="TexturaChoos">
+            Выбрать текстуру <br />
+            <input type="radio" name="choosTexture" value="regul" checked /> Регулярная <br />
+            <input type="radio" name="choosTexture" value="random" /> Случайная <br />
+        </div>
+        <div id="settingzoom">
+            Zoom: <br />
+            <input id="zoom" type="number" min="1" max="100" style="width: 70px;" value="1" /><br />
+            <input onclick="DrawingSettings();" type="submit" value="Далее" /><br />
+        </div>
+        <div id="setting">
+        </div>
+        <div id="FieldInput">
+            Задать векторное поле <br />
+            <input type="radio" name="inField" value="fun" checked /> Векторное поле {x ; y^2 + x} <br />
+            <input type="radio" name="inField" value="fun2" /> Векторное поле {y ; -x}<br />
+            <input type="radio" name="inField" value="invec" /> Задать векторное поле в ручную<br />
+            <div id="inpole"></div>
+            <!--<input type="radio" name="inField" value="fielvec" /> Загрузить векторное поле из файла<br />
+            <div id="fielepole"></div>-->
+        </div>
+    </div>
+
+    <div class="footer"></div>
+    <script type="text/javascript">
+        /**
+         * This source code is licensed under the GPLv3 License.
+         * Author: Alexei Nekrasov (znbiz, E-mail: nekrasov.aleks1992@gmail.com)
+         */
+        var inField = document.getElementsByName("inField");
+        var choosTexture = document.getElementsByName("choosTexture");
+        var flagtext = 1; //0- регулярная текстура, 1- случайная текстура
+        var massiv;
+        var flagfield = 1;
+        var zoom = 1;
+        var shiftwidth = 0;
+        var shiftheight = 0;
+        var fieldswidth = 0;
+        var fieldsheight = 0;
+
+        for (var i = 0; i < inField.length; i++) {
+            inField[i].addEventListener("change", FieldInput);
+        }
+        for (var i = 0; i < choosTexture.length; i++) {
+            choosTexture[i].addEventListener("change", TexturaChoos);
+        }
+
+
+        function FieldInput(event) {
+            if (event.target.value == "fun") {
+                flagfield = 1;
+                RemoveField('inpole'); //очищаем узел ввода векторного поля
+                //RemoveField('fielepole'); //очищаем узел ввода файла с векторным полем
+                DrawingZoom();
+                setTextures(flagfield, flagtext, massiv, fieldswidth, fieldsheight, zoom, shiftwidth, shiftheight);
+            }
+            if (event.target.value == "fun2") {
+                flagfield = 2;
+                RemoveField('inpole');
+                //RemoveField('fielepole');
+                DrawingZoom();
+                setTextures(flagfield, flagtext, massiv, fieldswidth, fieldsheight, zoom, shiftwidth, shiftheight);
+            }
+            if (event.target.value == "invec") {
+                flagfield = 3;
+                //RemoveField('fielepole');
+                RemoveField('settingzoom');
+                RemoveField('setting');
+                OutField();
+                setTextures(flagfield, flagtext, massiv, fieldswidth, fieldsheight, zoom, shiftwidth, shiftheight);
+            }
+            //if (event.target.value == "fielvec") {
+            //    flagfield = 4;
+            //    RemoveField('inpole');
+            //    InputFileField();
+            //    setTextures(flagfield, flagtext, massiv);
+            //}
+
+        }
+
+        //function InputFileField() {
+        //    document.getElementById("fielepole").innerHTML = 'Ширина:<br/> \
+        //    <input id="width" type="number" style="width: 50px;" value="1" /><br/> \
+        //    Высота:<br/> \
+        //    <input id="height" type="number" style="width: 50px;" value="1" /><br/> \
+        //    Выберите файл, в котором хранится векторное поле данного размера\
+        //    <input id="file" type="file" /><br/>\
+        //    <input onclick="InputFile(event);" type="submit" value="Далее" /><br/> \
+        //    <div id="tabl"></div>';
+        //}
+
+        //function InputFile() {
+        //    var width = document.getElementById("width").value;
+        //    var height = document.getElementById("height").value;
+        //    var strfile = document.getElementById("file").value;
+
+        //    var massiv = new Float32Array(2 * width * height);
+        //    for (var i = 0; i < elements.length; i++) {
+        //        var input = elements[i];
+        //        massiv[i] = input.value;
+        //    }
+
+        //    setTextures(flagfield, flagtext, massiv, width, height);
+        //}
+
+        //Выбираем техтуру
+        function TexturaChoos(event) {
+            if ("regul" == event.target.value) {
+                flagtext = 1;
+            } else {
+                flagtext = 2;
+            }
+            setTextures(flagfield, flagtext, massiv, fieldswidth, fieldsheight, zoom, shiftwidth, shiftheight)
+        }
+
+        //------------------------------------------------------------------------
+        //Рисуем блок с настройками (увеличение и передвижения)
+        function DrawingZoom() {
+            document.getElementById("settingzoom").innerHTML = 'Zoom: <br/>   \
+                <input id="zoom" type="number" min="1" max="1000" style="width: 70px;" value="' + zoom + '" /><br/> \
+                <input onclick="DrawingSettings();" type="submit" value="Далее" /><br/> ';
+        }
+
+        function DrawingSettings() {
+            zoom = document.getElementById("zoom").value;
+            zoom = (zoom > 1000) ? 1000 : ((zoom < 1) ? 1 : zoom);
+
+            setTextures(flagfield, flagtext, massiv, fieldswidth, fieldsheight, zoom, shiftwidth, shiftheight);
+
+            var shiftW = Math.ceil((500 - 500 / zoom) / 2);
+            var shiftH = Math.ceil((500 - 500 / zoom) / 2);
+            var mshiftW = -Math.ceil((500 - 500 / zoom) / 2);
+            var mshiftH = -Math.ceil((500 - 500 / zoom) / 2);
+            document.getElementById("setting").innerHTML = 'Cдвиг по горизонтали: <br/> \
+                <input id="shiftwidth" type="number" min="' + mshiftW + '" max="' + shiftW + '" style="width: 70px;" value="0" /><br/> \
+                Сдвиг по вертикали:<br/> \
+                <input id="shiftheight" type="number" min="' + mshiftH + '" max="' + shiftH + '" style="width: 70px;" value="0" /><br/> \
+                <input onclick="Settings();" type="submit" value="Далее" /><br/> ';
+        }
+
+        //Заносим значения из настроек в соответствующии переменные
+        function Settings() {
+            shiftwidth = document.getElementById("shiftwidth").value;
+            shiftheight = document.getElementById("shiftheight").value;
+            //alert(shiftwidth + '  ' + shiftheight);
+            var sw = Math.ceil((500 - 500 / zoom) / 2);
+            var sh = Math.ceil((500 - 500 / zoom) / 2);
+            //alert(sw + ' ' + sh);
+            shiftwidth = (shiftwidth > sw) ? sw : ((shiftwidth < -sw) ? -sw : shiftwidth);
+            shiftheight = (shiftheight > sh) ? sh : ((shiftheight < -sh) ? -sh : shiftheight);
+            //alert(shiftwidth + '  ' + shiftheight);
+            setTextures(flagfield, flagtext, massiv, fieldswidth, fieldsheight, zoom, shiftwidth, shiftheight);
+        }
+
+        //------------------------------------------------------------------------
+        //Ввод векторного поля в ручную
+        function OutField() {
+            document.getElementById("inpole").innerHTML = 'Ширина [1, 5]:<br/> \
+                <input id="width" type="number" min="1" max="5" style="width: 10;" value="1" /><br/> \
+                Высота [1, 5]:<br/> \
+                <input id="height" type="number" min="1" max="5" style="width: 10;" value="1" /><br/> \
+                <input onclick="RenderingTable(event);" type="submit" value="Далее" /><br/> \
+                <div id="tabl"></div>';
+        }
+
+        function RenderingTable() {
+            fieldswidth = document.getElementById("width").value;
+            fieldsheight = document.getElementById("height").value;
+            fieldswidth = (fieldswidth > 5) ? 5 : ((fieldswidth < 1) ? 1 : fieldswidth);
+            fieldsheight = (fieldsheight > 5) ? 5 : ((fieldsheight < 1) ? 1 : fieldsheight);
+
+            var conteiner = '<table id="age-table">';
+            for (var i = 0; i < fieldsheight; i++) {
+                conteiner += '<tr id="tr' + i + '">';
+                for (var j = 0; j < fieldswidth; j++) {
+                    conteiner += '<td style="width: 110px;"> \
+                        ( <input type="number" style="width: 35px;" value="1" />, \
+                        <input type="number" style="width: 35px;" value="-1" /> ); \
+                        </td>';
+                }
+                conteiner += '</tr>';
+            }
+            conteiner += '</table> \
+                <input onclick="CreateFeild(event);" type="submit" value="Далее" />';
+            document.getElementById("tabl").innerHTML = conteiner;
+        }
+
+        function CreateFeild() {
+            var tableElem = document.getElementById("age-table");
+            var elements = tableElem.getElementsByTagName("input");
+            var massiv = new Float32Array(2 * fieldswidth * fieldsheight);
+            for (var i = 0; i < elements.length; i++) {
+                var input = elements[i];
+                massiv[i] = input.value;
+            }
+
+            setTextures(flagfield, flagtext, massiv, fieldswidth, fieldsheight, zoom, shiftwidth, shiftheight);
+        }
+        //------------------------------------------------------------------------
+
+        //Функция очищение узлов
+        function RemoveField(elem) {
+            document.getElementById(elem).innerHTML = "";
+        }
+    </script>
+
+
+    <script id="shader-vs" type="x-shader/x-vertex">
+        attribute vec3 aVertexPosition;
+        attribute vec2 aVertexTextureCoords;
+        varying vec2 vTextureCoords;
+
+        void main(void) {
+        gl_Position = vec4(aVertexPosition, 1.0);
+        vTextureCoords = aVertexTextureCoords;
+        }
+    </script>
+
+    <script id="shader-fs" type="x-shader/x-vertex">
+        # define L 20
+        # define Lf 20.0
+
+        precision highp float;
+
+        uniform sampler2D uSampler;
+        uniform sampler2D fieldSampler;
+
+        uniform float imageWidthf;
+        uniform float imageHeightf;
+
+        varying vec2 vTextureCoords;
+        float h = 0.5;
+        float norm;
+
+        vec2 field(vec2 v2){
+
+            v2.x = v2.x / imageWidthf;
+            v2.y = v2.y / imageHeightf;
+            v2 = (vec4(texture2D(fieldSampler, v2))).xy;
+            //norm = sqrt(v2.x * v2.x + v2.y * v2.y);
+            v2 = vec2(v2.x * imageWidthf, v2.y * imageHeightf);
+            return normalize(v2);
+        }
+
+        vec2 RK(vec2 p, float h1){
+            vec2 v = field(p);
+            vec2 k1;
+            vec2 k2;
+            vec2 k3;
+            vec2 k4;
+
+            k1 = v * h1;
+            v = field(p + (k1 * 0.5));
+            k2 = v * h1;
+            v = field(p + (k2 * 0.5));
+            k3 = v * h1;
+            v = field(p + k3);
+            k4 = v * h1;
+            p = p + (k1 * 1.0/6.0) + (k3 * 1.0/3.0) + (k3 * 1.0/3.0) + (k4 * 1.0/6.0);
+
+            return p;
+        }
+
+        bool inBounds(vec2 p){
+            return (p.x >= 0.0 && p.x < imageWidthf && p.y >= 0.0 && p.y < imageHeightf);
+        }
+
+        vec3 texCoord(vec2 p){
+            return (vec4(texture2D(uSampler, vec2(p.x / imageWidthf , p.y / imageHeightf)))).xyz;
+        }
+
+        vec3 Integral(vec2 streamLine[2*L]){
+            float acum = 0.0;
+            vec3 Ix0 = vec3(0.0, 0.0, 0.0);
+            float k = -Lf;
+            float k1;
+            vec2 xi;
+
+            for( int i = -L ; i < L; i++){
+                xi = streamLine[L-1 + i];
+
+                if(inBounds(xi)){
+                    Ix0 += texCoord(xi) * fract((Lf + k) / (Lf * Lf * 4.0));
+                    acum += fract((Lf + k) / (Lf * Lf * 4.0));
+                }
+                k += 1.0;
+            }
+            Ix0 /= acum;
+            //Ix0.x =  abs(-Ix0.x + norm) / (norm + 1.0);
+            gl_FragColor = vec4(fract(Ix0), 1.0);
+            return Ix0;
+        }
+
+        vec3 computeStreamLine(vec2 p){
+            vec2 fwd[L];
+            vec2 bwd[L];
+            vec2 f = p;
+            vec2 b = p;
+
+            for (int i = 0; i < L; ++i){
+                f = RK(f, h);
+                fwd[i] = f;
+
+                b = RK(b, -h);
+                bwd[i] = b;
+            }
+            //переварачиваем массим bwd
+            vec2 fwdpr[L];
+            for (int i = 0; i < L; i++){
+                fwdpr[i] = fwd[L-i-1];
+            }
+            for (int i = 0; i < L; i++){
+                fwd[i] = fwdpr[i];
+            }
+            //bwd.push.apply(fwd, bwd);
+            vec2 bwd2[L*2];
+            for (int i = 0; i < L; i++){
+                bwd2[i] = fwd[i];
+            }
+            for (int i = 0; i < L; i++){
+                bwd2[L+i] = bwd[i];
+            }
+            //выделяем целую часть
+            for (int i = 0; i < L*2; i++){
+                bwd2[i] = floor(bwd2[i]);
+            }
+            return Integral(bwd2);
+        }
+
+
+
+        void main(void) {
+            computeStreamLine(vec2(vTextureCoords.x * imageWidthf , vTextureCoords.y*imageHeightf));
+        }
+    </script>
+
+</body>
+
+</html>
